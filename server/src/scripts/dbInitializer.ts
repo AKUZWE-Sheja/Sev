@@ -7,6 +7,34 @@ async function initializeDatabase(): Promise<void> {
   try {
     console.log('Initializing database...');
 
+   // Create admin user if not exists
+    const adminEmail = 'user@admin.com';
+    const adminExists = await prisma.user.findUnique({ where: { email: adminEmail } });
+    let admin;
+    if (!adminExists) {
+      const hashedPassword = await bcrypt.hash('adminUser123!', 10);
+      admin = await prisma.user.create({
+        data: {
+          fname: 'Admin',
+          lname: 'User',
+          email: adminEmail,
+          password: hashedPassword,
+          role: 'ADMIN',
+          address: '124 Admin St, Nyabihu, Rwanda',
+          isVerified: true,
+        },
+      });
+      // Set location using raw SQL
+      await prisma.$executeRaw`
+        UPDATE "User"
+        SET location = ST_SetSRID(ST_MakePoint(${29.4577}, ${-1.6868}), 4326)
+        WHERE id = ${admin.id}
+      `;
+      console.log('Admin user created');
+    } else {
+      admin = adminExists;
+    }
+
     // Create donor user if not exists
     const donorEmail = 'user@donor.com';
     const donorExists = await prisma.user.findUnique({ where: { email: donorEmail } });

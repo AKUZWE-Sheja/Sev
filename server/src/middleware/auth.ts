@@ -22,7 +22,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 };
 
 export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  if (req.user?.role !== 'admin') {
+  if (req.user?.role !== 'ADMIN') {
     res.status(403).json({ error: 'Admin access required' });
     return;
   }

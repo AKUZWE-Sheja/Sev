@@ -2,7 +2,7 @@
 CREATE EXTENSION postgis;
 
 -- CreateEnum
-CREATE TYPE "public"."Role" AS ENUM ('DONOR', 'ACCEPTOR');
+CREATE TYPE "public"."Role" AS ENUM ('DONOR', 'ACCEPTOR', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "public"."Category" AS ENUM ('CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST');
