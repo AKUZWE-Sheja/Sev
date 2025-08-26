@@ -18,6 +18,8 @@ const registerSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   address: z.string().min(1, 'Address is required'),
   role: z.enum(['DONOR', 'ACCEPTOR']),
+  lng: z.number().optional(),
+  lat: z.number().optional(),
 });
 
 const loginSchema = z.object({
@@ -34,7 +36,7 @@ const otpSchema = z.object({
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     // validating request body
-    const { fname, lname, email, password, role, address } = registerSchema.parse(req.body);
+    const { fname, lname, email, password, role, address, lng, lat } = registerSchema.parse(req.body);
 
     // checking if emmial is already taken
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -57,10 +59,17 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         password: hashedPassword,
         otp: otpCode,
         otpExpiresAt,
-        address,
-        role
+        role,
+        address
       },
     });
+
+    // Then update location using raw SQL
+    await prisma.$executeRaw`
+    UPDATE "User"
+    SET location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+    WHERE id = ${user.id}
+    `;
 
     // sending OTP email
     await sendOtpEmail(email, otpCode);
