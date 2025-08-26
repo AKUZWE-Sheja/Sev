@@ -1,7 +1,4 @@
-1. npm install typescript --save-dev
-
-2. npm install express @prisma/client bcrypt jsonwebtoken nodemailer swagger-ui-express express-rate-limit helmet cors dotenv zod
-   npm install -D typescript ts-node @types/express @types/node @types/bcrypt @types/jsonwebtoken @types/nodemailer prisma
+1. npm install
 
 3. tsconfig.json
 

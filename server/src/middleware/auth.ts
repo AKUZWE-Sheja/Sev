@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { StatusCodes } from 'http-status-codes';
 import jwt from 'jsonwebtoken';
 
 interface AuthRequest extends Request {
@@ -25,6 +26,13 @@ export const isAdmin = (req: AuthRequest, res: Response, next: NextFunction): vo
   if (req.user?.role !== 'ADMIN') {
     res.status(403).json({ error: 'Admin access required' });
     return;
+  }
+  next();
+};
+
+export const isAcceptor = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (req.user?.role !== 'ACCEPTOR') {
+    res.status(StatusCodes.FORBIDDEN).json({ error: 'Only acceptors can perform this action' });
   }
   next();
 };
