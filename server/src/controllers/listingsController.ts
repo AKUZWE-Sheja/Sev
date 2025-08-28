@@ -32,7 +32,6 @@ const updateListingSchema = z.object({
   latitude: z.number().min(-90).max(90).optional(),
 });
 
-// FIXED: Use coerce to handle query string parameters properly
 const getListingsSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),

@@ -8,6 +8,7 @@ import swaggerSpec from "./swagger";
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 import listingRoutes from "./routes/listingRoutes";
+import requestRoutes from "./routes/requestRoutes";
 import logRoutes from "./routes/logRoutes";
 import morgan from 'morgan';
 
@@ -21,6 +22,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/listings', listingRoutes);
+app.use('/api/requests', requestRoutes);
 app.use('/api/logs', logRoutes);
 
 const PORT: number = parseInt(process.env.PORT || '5000', 10);

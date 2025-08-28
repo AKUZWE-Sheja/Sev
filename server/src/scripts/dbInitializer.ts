@@ -150,6 +150,12 @@ async function initializeDatabase(): Promise<void> {
             status: 'OPEN',
           },
         });
+        // Set location using raw SQL
+        await prisma.$executeRaw`
+          UPDATE "Request"
+          SET location = ST_SetSRID(ST_MakePoint(${29.4600}, ${-1.6890}), 4326)
+          WHERE id = ${request.id}
+        `;
         console.log('Sample request created');
       }
     }

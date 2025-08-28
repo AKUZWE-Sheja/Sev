@@ -54,6 +54,7 @@ CREATE TABLE "public"."Request" (
     "description" TEXT,
     "category" "public"."Category" NOT NULL,
     "quantity" INTEGER,
+    "location" geometry(Point, 4326),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "status" "public"."RequestStatus" NOT NULL DEFAULT 'OPEN',

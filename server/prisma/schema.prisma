@@ -76,6 +76,7 @@ model Request {
   description String?
   category    Category
   quantity    Int? // Optional for bulk requests
+  location    Unsupported("geometry(Point, 4326)")? // PostGIS point for item request
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   status      RequestStatus @default(OPEN)
