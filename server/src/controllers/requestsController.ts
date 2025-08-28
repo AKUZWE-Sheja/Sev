@@ -2,15 +2,16 @@ import { Request, Response } from 'express';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { StatusCodes } from 'http-status-codes';
+import { CATEGORIES, REQUEST_STATUSES } from '../utils/consts';
 
 // Extend Express Request interface to include 'user'
-declare global {
-  namespace Express {
-    interface Request {
-      user?: { id: number; role: string; location?: { type: 'Point'; coordinates: [number, number] } };
-    }
-  }
-}
+// declare global {
+//   namespace Express {
+//     interface Request {
+//       user?: { id: number; role: string; location?: { type: 'Point'; coordinates: [number, number] } };
+//     }
+//   }
+// }
 
 const prisma = new PrismaClient();
 
@@ -18,7 +19,7 @@ const prisma = new PrismaClient();
 const createRequestSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']),
+  category: z.enum(CATEGORIES),
   quantity: z.number().int().min(1).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   latitude: z.number().min(-90).max(90).optional(),
@@ -27,9 +28,9 @@ const createRequestSchema = z.object({
 const updateRequestSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']).optional(),
+  category: z.enum(CATEGORIES).optional(),
   quantity: z.number().int().min(1).optional(),
-  status: z.enum(['OPEN', 'FULFILLED', 'CLOSED']).optional(),
+  status: z.enum(REQUEST_STATUSES).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   latitude: z.number().min(-90).max(90).optional(),
 });
@@ -38,7 +39,7 @@ const getRequestsSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().min(0).default(10000).optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']).optional(),
+  category: z.enum(CATEGORIES).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).default(10),
 }).refine((data) => {

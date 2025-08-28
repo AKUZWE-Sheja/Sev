@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { StatusCodes } from 'http-status-codes';
+import { CATEGORIES, LISTING_STATUSES } from '../utils/consts';
 
 // Extend Express Request interface to include 'user'
 declare global {
@@ -14,11 +15,12 @@ declare global {
 
 const prisma = new PrismaClient();
 
+
 // Validation schemas
 const createListingSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']),
+  category: z.enum(CATEGORIES),
   longitude: z.number().min(-180).max(180).optional(),
   latitude: z.number().min(-90).max(90).optional(),
 });
@@ -26,8 +28,8 @@ const createListingSchema = z.object({
 const updateListingSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']).optional(),
-  status: z.enum(['ACTIVE', 'CLAIMED', 'COMPLETED']).optional(),
+  category: z.enum(CATEGORIES).optional(),
+  status: z.enum(LISTING_STATUSES).optional(),
   longitude: z.number().min(-180).max(180).optional(),
   latitude: z.number().min(-90).max(90).optional(),
 });
@@ -36,7 +38,7 @@ const getListingsSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().min(0).default(10000).optional(),
-  category: z.enum(['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST']).optional(),
+  category: z.enum(CATEGORIES).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).default(10),
 }).refine((data) => {

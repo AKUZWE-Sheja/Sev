@@ -1,0 +1,3 @@
+export const CATEGORIES = ['CLOTHING', 'ELECTRONICS', 'FOOD', 'FURNITURE', 'BOOKS', 'HOUSEHOLD', 'SPECIAL_REQUEST'] as const;
+export const LISTING_STATUSES = ['ACTIVE', 'CLAIMED', 'COMPLETED'] as const;
+export const REQUEST_STATUSES = ['OPEN', 'FULFILLED', 'CLOSED'] as const;
