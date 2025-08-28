@@ -1,12 +1,45 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { z } from 'zod';
+import { StatusCodes } from 'http-status-codes';
+import { sendOtpEmail } from '../utils/email';
 
 const prisma = new PrismaClient();
 
 interface AuthRequest extends Request {
   user?: { id: number; role: string };
 }
+
+// Validation schemas
+const updateUserSchema = z.object({
+  fname: z.string().min(1, 'First name is required').optional(),
+  lname: z.string().min(1, 'Last name is required').optional(),
+  email: z.string().email('Invalid email').optional(),
+  address: z.string().min(1, 'Address is required').optional(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters')
+});
+
+export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user?.id },
+      select: { id: true, fname: true, lname: true, email: true, role: true, address: true, isVerified: true },
+    });
+    if (!user) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'User not found' });
+      return;
+    }
+    res.json(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
 
 export const getUsers = async (req: AuthRequest, res: Response): Promise<void> => {
   const { page = '1', limit = '10', search = '' } = req.query;
@@ -65,5 +98,155 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Server error' });
+  }
+};
+
+export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
+  const user = req.user as { id: number; role: string };
+  const validated = updateUserSchema.parse(req.body);
+  const { fname, lname, email, address } = validated;
+
+  try {
+    // Fetch current user data
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { fname: true, lname: true, email: true, address: true },
+    });
+    if (!dbUser) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'User not found' });
+      return;
+    }
+
+    // Check if provided fields are identical to current values
+    const noChanges =
+      (!fname || fname === dbUser.fname) &&
+      (!lname || lname === dbUser.lname) &&
+      (!email || email === dbUser.email) &&
+      (!address || address === dbUser.address);
+
+    if (noChanges) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'No changes provided to update' });
+      return;
+    }
+
+    // Check email uniqueness if email is provided and different
+    if (email && email !== dbUser.email) {
+      const existingUser = await prisma.user.findFirst({ where: { email, NOT: { id: user.id } } });
+      if (existingUser) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'Email already in use' });
+        return;
+      }
+    }
+    // Perform update
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { fname, lname, email, address },
+      select: { id: true, fname: true, lname: true, email: true, role: true, isVerified: true, address: true },
+    });
+
+    await prisma.log.create({
+      data: {
+        userId: user.id,
+        action: `Updated user info: ${JSON.stringify({ fname, lname, email, address })}`,
+      },
+    });
+
+    res.status(StatusCodes.OK).json(updatedUser);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: error.errors });
+      return;
+    }
+    console.error('Error updating user:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update user' });
+  }
+};
+
+export const updateUserLocation = async (req: AuthRequest, res: Response): Promise<void> => {
+  const user = req.user as { id: number; role: string };
+  const updateLocationSchema = z.object({
+      longitude: z.number().min(-180).max(180),
+      latitude: z.number().min(-90).max(90),
+    });
+  const { longitude, latitude } = updateLocationSchema.parse(req.body);
+  try {
+    await prisma.$executeRaw`
+      UPDATE "User"
+      SET location = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)
+      WHERE id = ${user.id}
+    `;
+
+    await prisma.log.create({
+      data: {
+        userId: user.id,
+        action: `Updated user location: POINT(${longitude} ${latitude})`,
+      },
+    });
+
+    res.status(StatusCodes.OK).json({ message: 'Location updated' });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: error.errors });
+      return;
+    }
+    console.error('Error updating user location:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to update location' });
+  }
+};
+
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = req.user as { id: number; role: string };
+    const validated = changePasswordSchema.parse(req.body);
+    const { currentPassword, newPassword } = validated;
+
+    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser) {
+      res.status(StatusCodes.NOT_FOUND).json({ error: 'User not found' });
+      return;
+    }
+
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, dbUser.password);
+    if (!isPasswordValid) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'Invalid current password' });
+      return;
+    }
+
+    // Check if new password is the same as current password
+    const isSamePassword = await bcrypt.compare(newPassword, dbUser.password);
+    if (isSamePassword) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'New password must be different from the current password' });
+      return;
+    }
+
+    // Generate and store OTP, set isVerified to false
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedNewPassword ,otp: otpCode, otpExpiresAt: expiresAt, isVerified: false },
+    });
+
+    // Send OTP email
+    await sendOtpEmail(dbUser.email, otpCode);
+
+    await prisma.log.create({
+      data: {
+        userId: user.id,
+        action: 'Password change OTP generated, isVerified set to false',
+      },
+    });
+
+    res.status(StatusCodes.OK).json({ message: 'OTP sent', userId: user.id });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: error.errors });
+      return;
+    }
+    console.error('Error initiating password change:', error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to initiate password change' });
   }
 };
