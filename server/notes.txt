@@ -11,3 +11,8 @@
 
 5. npm run init-db
    npm run dev
+
+6. Current issues/ missing:
+   - Optimization
+   - Front
+   - Testing
