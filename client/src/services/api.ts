@@ -142,7 +142,7 @@ interface PaginationMeta {
   limit: number;
 }
 
-interface GetUsersParams {
+export interface GetUsersParams {
   page?: number;
   limit?: number;
   search?: string;
@@ -153,7 +153,7 @@ interface GetUsersResponse {
   meta: PaginationMeta;
 }
 
-interface GetMessagesParams {
+export interface GetMessagesParams {
   listingId?: number;
   requestId?: number;
   page?: number;
@@ -165,7 +165,7 @@ interface GetMessagesResponse {
   meta: PaginationMeta;
 }
 
-interface GetListingsParams {
+export interface GetListingsParams {
   page?: number;
   limit?: number;
   category?: string;
@@ -176,7 +176,7 @@ interface GetListingsResponse {
   meta: PaginationMeta;
 }
 
-interface GetRequestsParams {
+export interface GetRequestsParams {
   page?: number;
   limit?: number;
   category?: string;
@@ -187,7 +187,7 @@ interface GetRequestsResponse {
   meta: PaginationMeta;
 }
 
-interface GetLogsParams {
+export interface GetLogsParams {
   page?: number;
   limit?: number;
 }

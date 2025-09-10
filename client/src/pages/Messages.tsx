@@ -1,8 +1,12 @@
+import NavBar from "../components/Navbar"
 
 
 function Messages() {
   return (
-    <div>Messages</div>
+    <>
+      <NavBar />
+      Messages
+    </>
   )
 }
 

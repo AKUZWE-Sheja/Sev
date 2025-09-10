@@ -1,8 +1,12 @@
+import NavBar from "../components/Navbar"
 
 
 function Requests() {
   return (
-    <div>Requests</div>
+    <>
+      <NavBar />
+      Requests
+    </>
   )
 }
 

@@ -56,7 +56,7 @@ const NavBar: React.FC = () => {
                 to="/dashboard"
                 className="flex items-center text-xl font-bold tracking-tight"
               >
-                <span>Community Resource <span className="text-light-orange-tint">Tracker</span></span>
+                <span><span className='font-dancing'>SEV </span> <span className="text-light-orange-tint">Resource Tracker</span></span>
               </Link>
             </div>
 

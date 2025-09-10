@@ -9,9 +9,11 @@ import Messages from './pages/Messages';
 import Users from './pages/Users';
 import Logs from './pages/Logs';
 import VerifyOtp from './pages/VerifyOtp';
+import { AuthProvider } from './context/AuthContext';
 
 export default function App() {
   return (
+    <AuthProvider>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -66,6 +68,7 @@ export default function App() {
       />
       <Route path="*" element={<Login />} />
     </Routes>
+    </AuthProvider>
   );
 }
 

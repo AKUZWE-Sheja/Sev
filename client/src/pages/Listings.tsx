@@ -1,8 +1,12 @@
+import NavBar from "../components/Navbar"
 
 
 function Listings() {
   return (
-    <div>Listings</div>
+    <>
+      <NavBar />
+      Listings
+    </>
   )
 }
 

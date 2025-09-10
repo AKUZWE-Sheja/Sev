@@ -1,25 +1,23 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/authUtils';
 import type { ReactNode } from 'react';
-
-interface User {
-  id: number;
-  fname: string;
-  lname: string;
-  email: string;
-  role: 'DONOR' | 'ACCEPTOR' | 'ADMIN';
-  isVerified: boolean;
-  address: string;
-}
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const user: User | null = JSON.parse(localStorage.getItem('user') || 'null');
-  const token: string | null = localStorage.getItem('token');
+  const { user, loading } = useAuth();
 
-  if (!token || !user ) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-off-white-tint flex items-center justify-center text-gray-500">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
