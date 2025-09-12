@@ -3,13 +3,13 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import ProtectedRoute from './components/ProtectedRoute';
-import Listings from './pages/Listings';
-import Requests from './pages/Requests';
+import Create from './pages/Create';
 import Messages from './pages/Messages';
 import Users from './pages/Users';
 import Logs from './pages/Logs';
 import VerifyOtp from './pages/VerifyOtp';
 import { AuthProvider } from './context/AuthContext';
+import Profile from './pages/Profile';
 
 export default function App() {
   return (
@@ -27,18 +27,18 @@ export default function App() {
         }
       />
       <Route
-        path="/listings"
+        path="/create"
         element={
           <ProtectedRoute>
-            <Listings />
+            <Create />
           </ProtectedRoute>
         }
       />
       <Route
-        path="/requests"
+        path="/profile"
         element={
           <ProtectedRoute>
-            <Requests />
+            <Profile />
           </ProtectedRoute>
         }
       />

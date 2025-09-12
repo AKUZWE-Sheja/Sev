@@ -45,16 +45,16 @@ export default function Login() {
     }
 
     try {
-  await login({ email: formData.email, password: formData.password });
-  navigate('/dashboard');
-} catch (error) {
-  let errorMsg = 'Login failed. Please try again.';
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const apiError = error as { response?: { data?: { error?: string } } };
-    errorMsg = apiError.response?.data?.error || 'Login failed. Please try again.';
-  }
-  setErrors((prev) => ({ ...prev, api: errorMsg }));
-}
+      await login({ email: formData.email, password: formData.password });
+      navigate('/dashboard');
+    } catch (error) {
+      let errorMsg = 'Login failed. Please try again.';
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const apiError = error as { response?: { data?: { error?: string } } };
+        errorMsg = apiError.response?.data?.error || 'Login failed. Please try again.';
+      }
+      setErrors((prev) => ({ ...prev, api: errorMsg }));
+    }
   };
 
   return (

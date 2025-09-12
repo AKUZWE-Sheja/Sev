@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaHome, FaListAlt, FaEnvelope, FaUsers, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
+import { RiHeartAdd2Fill } from "react-icons/ri";
+import { BsPersonHeart } from "react-icons/bs";
 import { useAuth } from '../context/authUtils';
 import { logout } from '../services/api';
 
@@ -19,12 +21,12 @@ const NavBar: React.FC = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navItems: NavItem[] = [
-    { to: '/dashboard', label: 'Dashboard', icon: <FaHome className="mr-2" /> },
-    { to: '/listings', label: 'Listings', icon: <FaListAlt className="mr-2" /> },
-    { to: '/requests', label: 'Requests', icon: <FaListAlt className="mr-2" /> },
-    { to: '/messages', label: 'Messages', icon: <FaEnvelope className="mr-2" /> },
-    { to: '/users', label: 'Users', icon: <FaUsers className="mr-2" />, adminOnly: true },
-    { to: '/logs', label: 'Logs', icon: <FaListAlt className="mr-2" />, adminOnly: true },
+    { to: '/dashboard', label: 'Dashboard', icon: <FaHome className="mr-2 text-lg" /> },
+    { to: '/create', label: 'Create', icon: <RiHeartAdd2Fill className="mr-2 text-lg" /> },
+    { to: '/messages', label: 'Messages', icon: <FaEnvelope className="mr-2 text-lg" /> },
+    { to: '/profile', label: 'Profile', icon: <BsPersonHeart className="mr-2 text-lg" /> },
+    { to: '/users', label: 'Users', icon: <FaUsers className="mr-2 text-lg" />, adminOnly: true },
+    { to: '/logs', label: 'Logs', icon: <FaListAlt className="mr-2 text-lg" />, adminOnly: true },
   ];
 
   const handleLogoutClick = () => {
@@ -83,7 +85,7 @@ const NavBar: React.FC = () => {
                   onClick={handleLogoutClick}
                   className="flex items-center ml-4 px-3 py-2 rounded-md text-sm font-medium text-off-white-tint hover:bg-red-500 hover:text-white transition-colors"
                 >
-                  <FaSignOutAlt className="mr-2" />
+                  <FaSignOutAlt className="mr-2 text-lg" />
                   Log out
                 </button>
               </div>
@@ -136,7 +138,7 @@ const NavBar: React.FC = () => {
                 }}
                 className="flex items-center w-full text-left px-3 py-2 rounded-md text-base font-medium text-off-white-tint hover:bg-red-500 hover:text-white transition-colors"
               >
-                <FaSignOutAlt className="mr-2" />
+                <FaSignOutAlt className="mr-2 text-lg" />
                 Logout
               </button>
             </div>

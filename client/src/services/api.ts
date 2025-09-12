@@ -10,6 +10,7 @@ interface User {
   role: 'DONOR' | 'ACCEPTOR' | 'ADMIN';
   isVerified: boolean;
   address: string;
+  createdAt: Date;
 }
 
 interface LoginData {
@@ -166,6 +167,7 @@ interface GetMessagesResponse {
 }
 
 export interface GetListingsParams {
+  userId?: number;
   page?: number;
   limit?: number;
   category?: string;
@@ -177,6 +179,7 @@ interface GetListingsResponse {
 }
 
 export interface GetRequestsParams {
+  userId?: number;
   page?: number;
   limit?: number;
   category?: string;
@@ -282,6 +285,11 @@ export const logout = (): void => {
 };
 
 // User endpoints
+export const getUser = async (): Promise<User> => {
+  const response = await api.get<User>(`/users/me`);
+  return response.data;
+};
+
 export const getUsers = async (params: GetUsersParams = {}): Promise<GetUsersResponse> => {
   const response = await api.get<GetUsersResponse>('/users', { params });
   return { data: response.data.data, meta: response.data.meta };
