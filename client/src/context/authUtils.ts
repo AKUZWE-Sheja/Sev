@@ -7,6 +7,8 @@ export interface User {
   role: 'DONOR' | 'ACCEPTOR' | 'ADMIN';
   isVerified: boolean;
   address: string;
+  location? : { longitude: number; latitude: number } | null;
+  createdAt: Date | string;
 }
 
 export interface AuthContextType {
