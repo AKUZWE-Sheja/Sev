@@ -96,6 +96,13 @@ router.get('/me', authenticate, asyncHandler(getUserProfile));
  *                       address: { type: string, description: 'User address' }
  *                       role: { type: string, enum: [DONOR, ACCEPTOR, ADMIN], description: 'User role' }
  *                       isVerified: { type: boolean, description: 'Verification status' }
+ *                       location:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           longitude: { type: number, description: 'Longitude of user location' }
+ *                           latitude: { type: number, description: 'Latitude of user location' }
+ *                         description: 'User location coordinates'
  *                 meta:
  *                   type: object
  *                   properties:

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import { StatusCodes } from 'http-status-codes';
@@ -99,12 +99,42 @@ export const getUsers = async (req: AuthRequest, res: Response): Promise<void> =
       prisma.user.count({ where }),
     ]);
 
+    // Fetch locations for these users
+    const userIds = users.map(u => u.id);
+    const locationsRaw = await prisma.$queryRaw<Array<{ id: number; location: string | null }>>`
+      SELECT id, ST_AsText(location) as location FROM "User" WHERE id IN (${Prisma.join(userIds)})
+    `;
+
+    // Map userId to parsed location
+    const locationMap: Record<number, { longitude: number; latitude: number } | null> = {};
+    locationsRaw.forEach(({ id, location }) => {
+      if (location) {
+        const match = location.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
+        if (match) {
+          locationMap[id] = {
+            longitude: parseFloat(match[1]),
+            latitude: parseFloat(match[2]),
+          };
+        } else {
+          locationMap[id] = null;
+        }
+      } else {
+        locationMap[id] = null;
+      }
+    });
+
+    // Attach location to each user
+    const usersWithLocation = users.map(u => ({
+      ...u,
+      location: locationMap[u.id] || null,
+    }));
+
     await prisma.log.create({
       data: { userId: req.user?.id, action: 'Users list viewed' },
     });
 
     res.json({
-      data: users,
+      data: usersWithLocation,
       meta: {
         totalItems,
         currentPage: pageNum,
