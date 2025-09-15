@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.8",
     "@lottiefiles/react-lottie-player": "^3.6.0",
     "@types/react-router-dom": "^5.3.3",
     "antd": "^5.27.1",

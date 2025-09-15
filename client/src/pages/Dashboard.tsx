@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/authUtils';
-import { getListings, getRequests, getMessages, getUsers, getLogs } from '../services/api';
+import { getListings, getRequests, getMessages, getUsers, getLogs, sendMessage } from '../services/api';
 import ErrorMessage from '../utils/ErrorMsg';
 import { 
   FaUsers, 
@@ -29,15 +29,8 @@ import {
 import Lottie from 'lottie-react';
 import Empty from '../assets/empty.json';
 import NavBar from '../components/Navbar';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: 'DONOR' | 'ACCEPTOR' | 'ADMIN';
-  isVerified: boolean;
-  address: string;
-}
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 
 interface Listing {
   id: number;
@@ -47,6 +40,7 @@ interface Listing {
   category: string;
   status: 'ACTIVE' | 'CLAIMED' | 'COMPLETED';
   createdAt: string;
+  location?: { longitude: number; latitude: number } | null;
 }
 
 interface Request {
@@ -57,15 +51,7 @@ interface Request {
   category: string;
   status: 'OPEN' | 'FULFILLED' | 'CLOSED';
   createdAt: string;
-}
-
-interface Message {
-  id: number;
-  senderId: number;
-  receiverId: number;
-  content: string;
-  createdAt: string;
-  sender: { fname: string; lname: string };
+  location?: { longitude: number; latitude: number } | null;
 }
 
 interface Log {
@@ -87,7 +73,7 @@ const CategoryBar = ({
   selectedCategory, 
   onCategoryClick 
 }: { 
-  categories: { name: string; icon: JSX.Element }[];
+  categories: { name: string; icon: React.ReactElement }[];
   selectedCategory: string | null;
   onCategoryClick: (category: string) => void;
 }) => {
@@ -115,7 +101,6 @@ const CategoryBar = ({
   );
 };
 
-// Updated categories with React Icons
 const categories = [
   { name: 'CLOTHING', icon: <GiClothes /> },
   { name: 'ELECTRONICS', icon: <MdElectricBolt /> },
@@ -159,9 +144,191 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 };
 
+const ItemDialog = ({ 
+  item, 
+  type, 
+  isOpen, 
+  onClose 
+}: { 
+  item: Listing | Request | null; 
+  type: 'listing' | 'request'; 
+  isOpen: boolean; 
+  onClose: () => void;
+}) => {
+  const { user } = useAuth();
+  const [messageContent, setMessageContent] = useState('');
+  const [messageError, setMessageError] = useState('');
+  const [messageSuccess, setMessageSuccess] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  const handleSendMessage = async () => {
+    if (!item || !user) return;
+    if (!messageContent.trim()) {
+      setMessageError('Message cannot be empty');
+      return;
+    }
+    if (messageContent.length > 500) {
+      setMessageError('Message cannot exceed 500 characters');
+      return;
+    }
+
+    setIsSending(true);
+    setMessageError('');
+    setMessageSuccess('');
+
+    try {
+      const messageData = {
+        receiverId: item.userId,
+        content: messageContent,
+        ...(type === 'listing' ? { listingId: item.id } : { requestId: item.id }),
+      };
+      await sendMessage(messageData);
+      setMessageSuccess('Message sent successfully!');
+      setMessageContent('');
+      // Close dialog after a short delay to show success message
+      setTimeout(() => {
+        setMessageSuccess('');
+        onClose();
+      }, 2000);
+    } catch (err: unknown) {
+      console.error('Error sending message:', err);
+      let errorMsg = 'Failed to send message';
+      if (typeof err === 'object' && err !== null && 'response' in err) { 
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        errorMsg = response?.data?.error || errorMsg;
+      }
+      setMessageError(errorMsg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Determine if the user is allowed to message
+  const canMessage = user && user.id !== item?.userId && (
+    // Donor messaging acceptor on a request
+    (user.role === 'DONOR' && type === 'request') ||
+    // Acceptor messaging donor on a listing
+    (user.role === 'ACCEPTOR' && type === 'listing') ||
+    // Acceptor messaging donor on a request (if needed)
+    (user.role === 'ACCEPTOR' && type === 'request')
+  );
+
+  // Determine message context
+  const messageContext = item && item.userId === user?.id
+    ? 'yourself'
+    : (type === 'listing'
+      ? 'donor'
+      : 'acceptor'
+    )
+
+  return (
+    <Transition appear show={isOpen} as={Fragment}>
+      <Dialog as="div" className="relative z-50" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-300"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-200"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm" />
+        </Transition.Child>
+
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                {item ? (
+                  <>
+                    <Dialog.Title as="h3" className="text-2xl font-bold text-gray-800 mb-4">
+                      {item.title}
+                    </Dialog.Title>
+                    <div className="space-y-4">
+                      <p className="text-gray-600">
+                        <strong>Category:</strong> {item.category.replace('_', ' ')}
+                      </p>
+                      <p className="text-gray-600">
+                        <strong>Status:</strong> <StatusBadge status={item.status} />
+                      </p>
+                      <p className="text-gray-600">
+                        <strong>Description:</strong> {item.description || 'No description provided'}
+                      </p>
+                      <p className="text-gray-600">
+                        <strong>{type === 'listing' ? 'Posted' : 'Requested'}:</strong> {new Date(item.createdAt).toLocaleDateString()}
+                      </p>
+                      {item.location && (
+                        <p className="text-gray-600">
+                          <strong>Location:</strong> ({item.location.latitude}, {item.location.longitude})
+                        </p>
+                      )}
+                      {canMessage && (
+                        <div className="mt-4">
+                          <textarea
+                            className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-dark-orange"
+                            rows={4}
+                            placeholder={`Write a message to the ${messageContext}...`}
+                            value={messageContent}
+                            onChange={(e) => {
+                              setMessageContent(e.target.value);
+                              setMessageError('');
+                              setMessageSuccess('');
+                            }}
+                            disabled={isSending}
+                          />
+                          {messageError && (
+                            <p className="text-red-500 text-sm mt-1">{messageError}</p>
+                          )}
+                          {messageSuccess && (
+                            <p className="text-green-500 text-sm mt-1">{messageSuccess}</p>
+                          )}
+                          <button
+                            className={`mt-2 px-4 py-2 text-sm font-medium text-white rounded-lg ${
+                              isSending
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-dark-orange hover:bg-secondary-orange focus:ring-2 focus:ring-dark-orange'
+                            }`}
+                            onClick={handleSendMessage}
+                            disabled={isSending}
+                          >
+                            {isSending ? 'Sending...' : `Message ${messageContext.charAt(0).toUpperCase() + messageContext.slice(1)}`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        type="button"
+                        className="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-dark-orange rounded-lg hover:bg-secondary-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-dark-orange"
+                        onClick={onClose}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">No item selected</p>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+};
+
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [stats, setStats] = useState<Stats>({ users: 0, listings: 0, requests: 0, messages: 0 });
   const [recentLogs, setRecentLogs] = useState<Log[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -169,14 +336,20 @@ const Dashboard = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errors, setErrors] = useState<{ api: string }>({ api: '' });
+  const [hasRedirected, setHasRedirected] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<Listing | Request | null>(null);
+  const [dialogType, setDialogType] = useState<'listing' | 'request'>('listing');
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!user) {
-      navigate('/login');
+    if (!authLoading && !user && !hasRedirected) {
+      console.log('Redirecting to /login: No user authenticated');
+      setHasRedirected(true);
+      window.location.href = '/login';
       return;
     }
+    
+    if (authLoading || !user) return;
 
     let isMounted = true;
 
@@ -185,11 +358,26 @@ const Dashboard = () => {
       try {
         if (user.role === 'ADMIN') {
           const [usersRes, listingsRes, requestsRes, messagesRes, logsRes] = await Promise.all([
-            getUsers({ page: 1, limit: 1 }),
-            getListings({ page: 1, limit: 1 }),
-            getRequests({ page: 1, limit: 1 }),
-            getMessages({ page: 1, limit: 1 }),
-            getLogs({ page: 1, limit: 5 }),
+            getUsers({ page: 1, limit: 1 }).catch((err) => {
+              console.error('getUsers error:', err);
+              throw err;
+            }),
+            getListings({ page: 1, limit: 1 }).catch((err) => {
+              console.error('getListings error:', err);
+              throw err;
+            }),
+            getRequests({ page: 1, limit: 1 }).catch((err) => {
+              console.error('getRequests error:', err);
+              throw err;
+            }),
+            getMessages({ page: 1, limit: 1 }).catch((err) => {
+              console.error('getMessages error:', err);
+              throw err;
+            }),
+            getLogs({ page: 1, limit: 5 }).catch((err) => {
+              console.error('getLogs error:', err);
+              throw err;
+            }),
           ]);
 
           if (isMounted) {
@@ -203,17 +391,28 @@ const Dashboard = () => {
           }
         }
 
-        const listingsRes = await getListings({ page: 1, limit: 10, category: selectedCategory });
-        const requestsRes = await getRequests({ page: 1, limit: 10, category: selectedCategory });
+        const listingsRes = await getListings({ page: 1, limit: 10, category: selectedCategory ?? undefined }).catch((err) => {
+          console.error('getListings error:', err);
+          throw err;
+        });
+        const requestsRes = await getRequests({ page: 1, limit: 10, category: selectedCategory ?? undefined }).catch((err) => {
+          console.error('getRequests error:', err);
+          throw err;
+        });
 
         if (isMounted) {
           setListings(listingsRes.data || []);
           setRequests(requestsRes.data || []);
           setErrors({ api: '' });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (isMounted) {
-          const errorMessage = err.response?.data?.error || 'Failed to load dashboard data';
+          let errorMessage = 'Failed to load dashboard data';
+          if (typeof err === 'object' && err !== null && 'response' in err) {
+            const response = (err as { response?: { data?: { error?: string } } }).response;
+            errorMessage = response?.data?.error || errorMessage;
+            console.error('API error details:', response?.data);
+          }
           setErrors({ api: errorMessage });
         }
       } finally {
@@ -228,10 +427,29 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, authLoading, selectedCategory, navigate]);
+  }, [user, authLoading, selectedCategory, hasRedirected]);
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category === selectedCategory ? null : category);
+  };
+
+  const handleListingClick = (listing: Listing) => {
+    console.log('Opening dialog for listing:', listing.id, 'User:', user);
+    setSelectedItem(listing);
+    setDialogType('listing');
+    setDialogOpen(true);
+  };
+
+  const handleRequestClick = (request: Request) => {
+    console.log('Opening dialog for request:', request.id, 'User:', user);
+    setSelectedItem(request);
+    setDialogType('request');
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setSelectedItem(null);
   };
 
   const filteredListings = selectedCategory ? listings.filter((l) => l.category === selectedCategory) : listings;
@@ -246,17 +464,17 @@ const Dashboard = () => {
     );
   }
 
-return (
-  <div className="min-h-screen bg-gray-50 font-lato">
-    <NavBar />
+  return (
+    <div className="min-h-screen bg-gray-50 font-lato">
+      <NavBar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">
-            Welcome back, <span className="text-dark-orange">{user ? user.name : 'User'}</span>!
+            Welcome back, <span className="text-dark-orange">{user ? `${user.name}` : 'User'}</span>!
           </h1>
           {user && user.role === 'ACCEPTOR' && (
             <Link
-              to="/create-request"
+              to="/create"
               className="inline-flex items-center px-4 py-2 bg-dark-orange text-white rounded-lg hover:bg-secondary-orange font-medium transition-colors shadow-md hover:shadow-lg"
             >
               <FaPlus className="mr-2" />
@@ -265,7 +483,6 @@ return (
           )}
         </div>
 
-        {/* Use the new CategoryBar component */}
         <CategoryBar 
           categories={categories} 
           selectedCategory={selectedCategory} 
@@ -274,12 +491,19 @@ return (
 
         {errors.api && <ErrorMessage message={errors.api} />}
 
+        <ItemDialog 
+          item={selectedItem} 
+          type={dialogType} 
+          isOpen={dialogOpen} 
+          onClose={closeDialog} 
+        />
+
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <Lottie animationData={Empty} loop={true} className="w-48 h-48" />
           </div>
         ) : filteredListings.length === 0 && filteredRequests.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500 bg-white p-8 rounded-xl shadow-sm">
+          <div className="flex flex-col items-center justify-center h-68 text-gray-500 bg-white p-8 rounded-xl shadow-sm">
             <Lottie animationData={Empty} loop={true} className="w-48 h-48" />
             <p className="mt-4 text-lg">No listings or requests found</p>
             <p className="text-sm text-gray-400">
@@ -298,7 +522,11 @@ return (
               {filteredListings.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredListings.map((listing) => (
-                    <div key={listing.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                    <div 
+                      key={listing.id} 
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+                      onClick={() => handleListingClick(listing)}
+                    >
                       <div className="p-5">
                         <h3 className="font-semibold text-lg text-gray-800 mb-2">{listing.title}</h3>
                         <div className="flex items-center justify-between mb-3">
@@ -336,7 +564,11 @@ return (
               {filteredRequests.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredRequests.map((request) => (
-                    <div key={request.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                    <div 
+                      key={request.id} 
+                      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+                      onClick={() => handleRequestClick(request)}
+                    >
                       <div className="p-5">
                         <h3 className="font-semibold text-lg text-gray-800 mb-2">{request.title}</h3>
                         <div className="flex items-center justify-between mb-3">
@@ -364,7 +596,6 @@ return (
               )}
             </div>
 
-            {/* Admin section remains similar but with improved styling */}
             {user && user.role === 'ADMIN' && (
               <>
                 <div className="mb-8 pt-6 border-t border-gray-200">
