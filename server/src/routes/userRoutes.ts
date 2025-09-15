@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getUsers, updateUser, updateUserLocation, changePassword, deleteUser } from '../controllers/userController';
+import { getUserProfile,getUsers, updateUser, updateUserLocation, changePassword, deleteUser } from '../controllers/userController';
 import { authenticate, isAdmin } from '../middleware/auth';
 
 const router = Router();
@@ -9,6 +9,43 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 }
+
+/**
+ * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: Get authenticated user's profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id: { type: integer, description: 'User ID' }
+ *                 fname: { type: string, description: 'First name' }
+ *                 lname: { type: string, description: 'Last name' }
+ *                 email: { type: string, description: 'Email address' }
+ *                 role: { type: string, enum: [DONOR, ACCEPTOR, ADMIN], description: 'User role' }
+ *                 address: { type: string, description: 'User address' }
+ *                 createdAt: { type: Date, description: 'Date joined' }
+ *                 isVerified: { type: boolean, description: 'Verification status' }
+ *                 location:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     longitude: { type: number, description: 'Longitude of user location' }
+ *                     latitude: { type: number, description: 'Latitude of user location' }
+ *                   description: 'User location coordinates'
+ *       401: { description: Unauthorized }
+ *       404: { description: User not found }
+ *       500: { description: Server error }
+ */
+router.get('/me', authenticate, asyncHandler(getUserProfile));
 
 /**
  * @swagger

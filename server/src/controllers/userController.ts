@@ -24,20 +24,51 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'New password must be at least 8 characters')
 });
 
+const updateLocationSchema = z.object({
+    longitude: z.number().min(-180).max(180),
+    latitude: z.number().min(-90).max(90),
+  });
+
 export const getUserProfile = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user?.id },
-      select: { id: true, fname: true, lname: true, email: true, role: true, address: true, isVerified: true },
+      select: {
+        id: true,
+        fname: true,
+        lname: true,
+        email: true,
+        role: true,
+        address: true,
+        createdAt: true,
+        isVerified: true
+      },
     });
+
     if (!user) {
       res.status(StatusCodes.NOT_FOUND).json({ error: 'User not found' });
       return;
     }
-    res.json(user);
+
+    const locationResult = await prisma.$queryRaw<
+          Array<{ location: string | null }>
+        >`SELECT ST_AsText(location) as location FROM "User" WHERE id = ${user.id}`;
+        let location: { longitude: number; latitude: number } | null = null;
+        const locStr = locationResult[0]?.location;
+        if (locStr) {
+          const match = locStr.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
+          if (match) {
+            location = { longitude: parseFloat(match[1]), latitude: parseFloat(match[2]) };
+       }
+    }
+    
+    res.json({
+      ...user,
+      location,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Server error' });
   }
 };
 
@@ -164,10 +195,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 
 export const updateUserLocation = async (req: AuthRequest, res: Response): Promise<void> => {
   const user = req.user as { id: number; role: string };
-  const updateLocationSchema = z.object({
-      longitude: z.number().min(-180).max(180),
-      latitude: z.number().min(-90).max(90),
-    });
+
   const { longitude, latitude } = updateLocationSchema.parse(req.body);
   try {
     await prisma.$executeRaw`

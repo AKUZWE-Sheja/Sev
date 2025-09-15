@@ -32,6 +32,7 @@ model User {
   sentMessages     Message[]                             @relation("SentMessages")
   receivedMessages Message[]                             @relation("ReceivedMessages")
   logs             Log[]
+  createdAt        DateTime @default(now())
 }
 
 // Item listing model
