@@ -11,6 +11,7 @@ interface User {
   isVerified: boolean;
   address: string;
   createdAt: Date;
+  location?: { longitude: number; latitude: number } | null;
 }
 
 interface LoginData {
