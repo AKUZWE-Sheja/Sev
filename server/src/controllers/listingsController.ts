@@ -128,13 +128,13 @@ export const createListing = async (req: Request, res: Response) => {
 // Get listings (with optional geospatial and category filtering)
 export const getListings = async (req: Request, res: Response) => {
   try {
-    const user = req.user as { id: number; role: string }; // From JWT middleware
+    const user = req.user as { id: number; role: string };
     const validated = getListingsSchema.parse(req.query);
     const { latitude, longitude, radius, category, page, limit } = validated;
     const skip = (page - 1) * limit;
 
-    let listings;
-    let totalItems;
+    let listings: any[] = [];
+    let totalItems: number = 0;
     let searchLongitude = longitude;
     let searchLatitude = latitude;
     let usingUserLocation = false;
@@ -148,23 +148,20 @@ export const getListings = async (req: Request, res: Response) => {
         FROM "User"
         WHERE id = ${user.id}
       `;
-      
       if (userCoords.length > 0 && userCoords[0].longitude !== null && userCoords[0].latitude !== null) {
         searchLongitude = userCoords[0].longitude;
         searchLatitude = userCoords[0].latitude;
         usingUserLocation = true;
       } else {
-        // User doesn't have a location set, return error
         return res.status(StatusCodes.BAD_REQUEST).json({ 
           error: 'Radius provided but no location coordinates available. Either provide latitude/longitude parameters or set your profile location.' 
         });
       }
     }
 
-    // If we have coordinates and radius
+    // Geospatial query with radius
     if (searchLatitude !== undefined && searchLongitude !== undefined && radius && radius > 0) {
-      // Geospatial query with radius
-      listings = await prisma.$queryRaw`
+      listings = await prisma.$queryRaw<any[]>`
         SELECT 
           id, 
           "userId", 
@@ -191,7 +188,6 @@ export const getListings = async (req: Request, res: Response) => {
         ORDER BY distance ASC, "createdAt" DESC
         OFFSET ${skip} LIMIT ${limit}
       `;
-      
       const totalItemsResult = await prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*) as count
         FROM "Listing"
@@ -204,6 +200,14 @@ export const getListings = async (req: Request, res: Response) => {
         AND status = 'ACTIVE'
       `;
       totalItems = Number(totalItemsResult[0]?.count ?? 0);
+
+      // Attach location as object
+      listings = listings.map(l => ({
+        ...l,
+        location: (l.longitude !== null && l.latitude !== null)
+          ? { longitude: l.longitude, latitude: l.latitude }
+          : null,
+      }));
     } else {
       // Non-geospatial query
       listings = await prisma.listing.findMany({
@@ -230,8 +234,31 @@ export const getListings = async (req: Request, res: Response) => {
           ...(category && { category }) 
         },
       });
+
+      // Fetch locations for these listings
+      const listingIds = listings.map(l => l.id);
+      let locationMap: Record<number, { longitude: number; latitude: number } | null> = {};
+      if (listingIds.length > 0) {
+        const locationsRaw = await prisma.$queryRaw<Array<{ id: number; longitude: number | null; latitude: number | null }>>`
+          SELECT id, ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude FROM "Listing" WHERE id IN (${Prisma.join(listingIds)})
+        `;
+        locationsRaw.forEach(({ id, longitude, latitude }) => {
+          if (longitude !== null && latitude !== null) {
+            locationMap[id] = { longitude, latitude };
+          } else {
+            locationMap[id] = null;
+          }
+        });
+      }
+
+      // Attach location to each listing
+      listings = listings.map(l => ({
+        ...l,
+        location: locationMap[l.id] || null,
+      }));
     }
 
+    // console.log('Sending listings:', listings); // debugging
     res.status(StatusCodes.OK).json({
       data: listings,
       meta: {

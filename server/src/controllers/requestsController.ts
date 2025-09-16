@@ -137,7 +137,7 @@ export const getRequests = async (req: Request, res: Response) => {
 
     // If we have coordinates and radius
     if (searchLatitude !== undefined && searchLongitude !== undefined && radius && radius > 0) {
-      requests = await prisma.$queryRaw`
+      requests = await prisma.$queryRaw<any[]>`
         SELECT 
           id, 
           "userId", 
@@ -173,6 +173,14 @@ export const getRequests = async (req: Request, res: Response) => {
         AND status = 'OPEN'
       `;
       totalItems = Number(totalItemsResult[0]?.count ?? 0);
+
+      // Attach location as object
+      requests = requests.map(l => ({
+        ...l,
+        location: (l.longitude !== null && l.latitude !== null)
+          ? { longitude: l.longitude, latitude: l.latitude }
+          : null,
+      }));
     } else {
       // Non-geospatial query
       requests = await prisma.request.findMany({
@@ -199,6 +207,28 @@ export const getRequests = async (req: Request, res: Response) => {
           ...(category && { category }) 
         },
       });
+
+      // Fetch locations for these requests
+      const requestIds = requests.map(l => l.id);
+      let locationMap: Record<number, { longitude: number; latitude: number } | null> = {};
+      if (requestIds.length > 0) {
+        const locationsRaw = await prisma.$queryRaw<Array<{ id: number; longitude: number | null; latitude: number | null }>>`
+          SELECT id, ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude FROM "Request" WHERE id IN (${Prisma.join(requestIds)})
+        `;
+        locationsRaw.forEach(({ id, longitude, latitude }) => {
+          if (longitude !== null && latitude !== null) {
+            locationMap[id] = { longitude, latitude };
+          } else {
+            locationMap[id] = null;
+          }
+        });
+      }
+    
+      // Attach location to each listing
+      requests = requests.map(l => ({
+        ...l,
+        location: locationMap[l.id] || null,
+      }));
     }
 
     res.status(StatusCodes.OK).json({
