@@ -9,8 +9,9 @@ import {
   FaEnvelope, 
   FaFileAlt, 
   FaPlus, 
-  FaQuestionCircle 
+  FaQuestionCircle,
 } from 'react-icons/fa';
+import { FaLocationPin } from 'react-icons/fa6';
 import { 
   IoMdCheckmarkCircle, 
   IoMdCloseCircle, 
@@ -32,6 +33,36 @@ import NavBar from '../components/Navbar';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
+// Reverse Geocoding Function
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+    );
+    const data = await response.json();
+    return data.display_name || null;
+  } catch {
+    return null;
+  }
+}
+
+// Custom Hook for Geocoding
+const useGeocoding = () => {
+  const [placeNames, setPlaceNames] = useState<Record<string, string>>({});
+
+  const getPlaceName = async (lat: number, lng: number, key: string) => {
+    if (placeNames[key]) return placeNames[key];
+    
+    const name = await reverseGeocode(lat, lng);
+    if (name) {
+      setPlaceNames(prev => ({ ...prev, [key]: name }));
+    }
+    return name;
+  };
+
+  return { placeNames, getPlaceName };
+};
+
 interface Listing {
   id: number;
   userId: number;
@@ -41,6 +72,7 @@ interface Listing {
   status: 'ACTIVE' | 'CLAIMED' | 'COMPLETED';
   createdAt: string;
   location?: { longitude: number; latitude: number } | null;
+  placeName?: string;
 }
 
 interface Request {
@@ -52,6 +84,7 @@ interface Request {
   status: 'OPEN' | 'FULFILLED' | 'CLOSED';
   createdAt: string;
   location?: { longitude: number; latitude: number } | null;
+  placeName?: string;
 }
 
 interface Log {
@@ -266,11 +299,11 @@ const ItemDialog = ({
                       <p className="text-gray-600">
                         <strong>{type === 'listing' ? 'Posted' : 'Requested'}:</strong> {new Date(item.createdAt).toLocaleDateString()}
                       </p>
-                      {item.location && (
+                      {item.location ? (
                         <p className="text-gray-600">
-                          <strong>Location:</strong> ({item.location.latitude}, {item.location.longitude})
+                          <strong>Location:</strong> {item.placeName || `(${item.location.latitude.toFixed(6)}, ${item.location.longitude.toFixed(6)})`}
                         </p>
-                      )}
+                      ) : ('')}
                       {canMessage && (
                         <div className="mt-4">
                           <textarea
@@ -340,7 +373,9 @@ const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Listing | Request | null>(null);
   const [dialogType, setDialogType] = useState<'listing' | 'request'>('listing');
-
+  const { placeNames, getPlaceName } = useGeocoding();
+  const [geocodingItems, setGeocodingItems] = useState<Set<string>>(new Set());
+  
   useEffect(() => {
     if (!authLoading && !user && !hasRedirected) {
       console.log('Redirecting to /login: No user authenticated');
@@ -428,6 +463,47 @@ const Dashboard = () => {
       isMounted = false;
     };
   }, [user, authLoading, selectedCategory, hasRedirected]);
+
+  // Geocoding useEffect
+  useEffect(() => {
+    const geocodeItems = async () => {
+      // Process listings
+      for (const listing of listings) {
+        if (listing.location && !listing.placeName && !geocodingItems.has(`listing-${listing.id}`)) {
+          setGeocodingItems(prev => new Set(prev).add(`listing-${listing.id}`));
+          const placeName = await getPlaceName(
+            listing.location.latitude,
+            listing.location.longitude,
+            `listing-${listing.id}`
+          );
+          if (placeName) {
+            setListings(prev => prev.map(l => 
+              l.id === listing.id ? { ...l, placeName } : l
+            ));
+          }
+        }
+      }
+
+      // Process requests
+      for (const request of requests) {
+        if (request.location && !request.placeName && !geocodingItems.has(`request-${request.id}`)) {
+          setGeocodingItems(prev => new Set(prev).add(`request-${request.id}`));
+          const placeName = await getPlaceName(
+            request.location.latitude,
+            request.location.longitude,
+            `request-${request.id}`
+          );
+          if (placeName) {
+            setRequests(prev => prev.map(r => 
+              r.id === request.id ? { ...r, placeName } : r
+            ));
+          }
+        }
+      }
+    };
+
+    geocodeItems();
+  }, [listings, requests, geocodingItems, getPlaceName]);
 
   const handleCategoryClick = (category: string) => {
     setSelectedCategory(category === selectedCategory ? null : category);
@@ -540,6 +616,14 @@ const Dashboard = () => {
                             {listing.description}
                           </p>
                         )}
+                        {listing.location && (
+                          <div className="flex items-center mt-2 text-xs text-gray-500">
+                            <FaLocationPin className="mr-1 text-primary-orange" />
+                            <span className="truncate">
+                              {listing.placeName || 'Loading location...'}
+                            </span>
+                          </div>
+                        )}
                         <div className="mt-4 text-xs text-gray-500">
                           Posted {new Date(listing.createdAt).toLocaleDateString()}
                         </div>
@@ -581,6 +665,14 @@ const Dashboard = () => {
                           <p className="text-gray-600 text-sm mt-3 line-clamp-2">
                             {request.description}
                           </p>
+                        )}
+                        {request.location && (
+                          <div className="flex items-center mt-2 text-xs text-gray-500">
+                            <FaLocationPin className="mr-1 text-primary-orange" />
+                            <span className="truncate">
+                              {request.placeName || 'Loading location...'}
+                            </span>
+                          </div>
                         )}
                         <div className="mt-4 text-xs text-gray-500">
                           Requested {new Date(request.createdAt).toLocaleDateString()}

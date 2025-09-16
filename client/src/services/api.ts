@@ -88,6 +88,7 @@ interface Listing {
   status: 'ACTIVE' | 'CLAIMED' | 'COMPLETED';
   createdAt: string;
   updatedAt: string;
+  location?: { longitude: number; latitude: number } | null;
 }
 
 interface CreateListingData {
@@ -113,6 +114,7 @@ interface Request {
   status: 'OPEN' | 'FULFILLED' | 'CLOSED';
   createdAt: string;
   updatedAt: string;
+  location?: { longitude: number; latitude: number } | null;
 }
 
 interface CreateRequestData {
