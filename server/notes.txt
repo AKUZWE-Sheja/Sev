@@ -16,3 +16,12 @@
    - Optimization
    - Front
    - Testing
+
+7. Before deploying
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "init-db": "ts-node src/scripts/dbInitializer.ts",
+    "migrate": "prisma migrate dev"
+  }
