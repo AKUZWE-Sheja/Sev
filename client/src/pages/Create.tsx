@@ -10,16 +10,6 @@ import { FaPlus, FaQuestionCircle } from 'react-icons/fa';
 import { GiClothes, GiSofa } from 'react-icons/gi';
 import { MdElectricBolt, MdFastfood, MdMenuBook, MdHouse } from 'react-icons/md';
 
-interface User {
-  id: number;
-  fname: string;
-  lname: string;
-  email: string;
-  role: 'DONOR' | 'ACCEPTOR' | 'ADMIN';
-  isVerified: boolean;
-  address: string;
-}
-
 const categories = [
   { name: 'CLOTHING', icon: <GiClothes /> },
   { name: 'ELECTRONICS', icon: <MdElectricBolt /> },
@@ -85,7 +75,7 @@ const Create = () => {
         userId: user.id,
         title: title.trim(),
         description: description.trim(),
-        category: selectedCategory!,
+        category: selectedCategory as any,
       };
 
       if (itemType === 'listing') {

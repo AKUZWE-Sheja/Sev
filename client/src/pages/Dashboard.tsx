@@ -488,7 +488,7 @@ const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Listing | Request | null>(null);
   const [dialogType, setDialogType] = useState<'listing' | 'request'>('listing');
-  const { placeNames, getPlaceName } = useGeocoding();
+  const { getPlaceName } = useGeocoding();
   const [geocodingItems, setGeocodingItems] = useState<Set<string>>(new Set());
   const [distance, setDistance] = useState<number | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
