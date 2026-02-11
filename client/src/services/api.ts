@@ -213,7 +213,7 @@ type CustomAxiosInstance = {
   delete: typeof axios.delete;
 };
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://sev-xo3y.onrender.com/api';
 
 const api: CustomAxiosInstance = axios.create({
   baseURL: API_URL,
