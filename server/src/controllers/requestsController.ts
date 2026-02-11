@@ -4,15 +4,6 @@ import { z } from 'zod';
 import { StatusCodes } from 'http-status-codes';
 import { CATEGORIES, REQUEST_STATUSES } from '../utils/consts';
 
-// Extend Express Request interface to include 'user'
-// declare global {
-//   namespace Express {
-//     interface Request {
-//       user?: { id: number; role: string; location?: { type: 'Point'; coordinates: [number, number] } };
-//     }
-//   }
-// }
-
 const prisma = new PrismaClient();
 
 // Validation schemas

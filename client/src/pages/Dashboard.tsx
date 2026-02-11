@@ -10,6 +10,8 @@ import {
   FaFileAlt, 
   FaPlus, 
   FaQuestionCircle,
+  FaFilter,
+  FaMapMarkerAlt
 } from 'react-icons/fa';
 import { FaLocationPin } from 'react-icons/fa6';
 import { 
@@ -175,6 +177,119 @@ const StatusBadge = ({ status }: { status: string }) => {
     default:
       return <span className={`${base} bg-gray-100 text-gray-800`}>Unknown</span>;
   }
+};
+
+const DistanceFilter = ({ 
+  distance, 
+  setDistance,
+  userLocation,
+  setUserLocation
+}: { 
+  distance: number | null;
+  setDistance: (distance: number | null) => void;
+  userLocation: { lat: number; lng: number } | null;
+  setUserLocation: (location: { lat: number; lng: number } | null) => void;
+}) => {
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  const getCurrentLocation = () => {
+    setIsGettingLocation(true);
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser');
+      setIsGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        setIsGettingLocation(false);
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        alert('Unable to get your location. Please allow location access.');
+        setIsGettingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6">
+      <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+        <FaFilter className="mr-2 text-primary-orange" />
+        Distance Filter
+      </h3>
+      
+      <div className="space-y-4">
+        {/* Location Section */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Your Location
+          </label>
+          {userLocation ? (
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">
+                {userLocation.lat.toFixed(6)}, {userLocation.lng.toFixed(6)}
+              </span>
+              <button
+                onClick={() => setUserLocation(null)}
+                className="text-red-500 hover:text-red-700 text-sm"
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={getCurrentLocation}
+              disabled={isGettingLocation}
+              className="flex items-center px-4 py-2 bg-primary-orange text-white rounded-lg hover:bg-secondary-orange transition-colors disabled:opacity-50"
+            >
+              <FaMapMarkerAlt className="mr-2" />
+              {isGettingLocation ? 'Getting Location...' : 'Use My Current Location'}
+            </button>
+          )}
+        </div>
+
+        {/* Distance Slider */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Search Radius: {distance === null ? 'No limit' : `${distance} km`}
+          </label>
+          <div className="flex items-center space-x-4">
+            <input
+              type="range"
+              min="1"
+              max="100"
+              value={distance || 0}
+              onChange={(e) => setDistance(e.target.value ? parseInt(e.target.value) : null)}
+              disabled={!userLocation}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <button
+              onClick={() => setDistance(null)}
+              disabled={!userLocation}
+              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>1km</span>
+            <span>50km</span>
+            <span>100km</span>
+          </div>
+        </div>
+
+        {!userLocation && distance !== null && (
+          <p className="text-sm text-amber-600">
+            Please enable location to use distance filtering
+          </p>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const ItemDialog = ({ 
@@ -375,6 +490,8 @@ const Dashboard = () => {
   const [dialogType, setDialogType] = useState<'listing' | 'request'>('listing');
   const { placeNames, getPlaceName } = useGeocoding();
   const [geocodingItems, setGeocodingItems] = useState<Set<string>>(new Set());
+  const [distance, setDistance] = useState<number | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   useEffect(() => {
     if (!authLoading && !user && !hasRedirected) {
@@ -426,11 +543,25 @@ const Dashboard = () => {
           }
         }
 
-        const listingsRes = await getListings({ page: 1, limit: 10, category: selectedCategory ?? undefined }).catch((err) => {
+        // Prepare query parameters for distance filtering
+        const queryParams: any = {
+          page: 1,
+          limit: 10,
+          ...(selectedCategory && { category: selectedCategory })
+        };
+
+        // Add distance filtering if enabled
+        if (distance !== null && userLocation) {
+          queryParams.latitude = userLocation.lat;
+          queryParams.longitude = userLocation.lng;
+          queryParams.radius = distance * 1000; // Convert km to meters
+        }
+
+        const listingsRes = await getListings(queryParams).catch((err) => {
           console.error('getListings error:', err);
           throw err;
         });
-        const requestsRes = await getRequests({ page: 1, limit: 10, category: selectedCategory ?? undefined }).catch((err) => {
+        const requestsRes = await getRequests(queryParams).catch((err) => {
           console.error('getRequests error:', err);
           throw err;
         });
@@ -462,7 +593,7 @@ const Dashboard = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, authLoading, selectedCategory, hasRedirected]);
+  }, [user, authLoading, selectedCategory, hasRedirected, distance, userLocation]);
 
   // Geocoding useEffect
   useEffect(() => {
@@ -559,6 +690,14 @@ const Dashboard = () => {
           )}
         </div>
 
+        {/* Distance Filter Component */}
+        <DistanceFilter 
+          distance={distance}
+          setDistance={setDistance}
+          userLocation={userLocation}
+          setUserLocation={setUserLocation}
+        />
+
         <CategoryBar 
           categories={categories} 
           selectedCategory={selectedCategory} 
@@ -584,6 +723,7 @@ const Dashboard = () => {
             <p className="mt-4 text-lg">No listings or requests found</p>
             <p className="text-sm text-gray-400">
               {selectedCategory ? `for ${selectedCategory.toLowerCase().replace('_', ' ')}` : 'Try selecting a different category'}
+              {distance !== null && userLocation && ` within ${distance}km`}
             </p>
           </div>
         ) : (
@@ -593,6 +733,7 @@ const Dashboard = () => {
                 <h2 className="text-2xl font-bold text-gray-800">Available Listings</h2>
                 <span className="text-sm text-gray-500">
                   {filteredListings.length} {filteredListings.length === 1 ? 'item' : 'items'}
+                  {distance !== null && userLocation && ` within ${distance}km`}
                 </span>
               </div>
               {filteredListings.length > 0 ? (
@@ -643,6 +784,7 @@ const Dashboard = () => {
                 <h2 className="text-2xl font-bold text-gray-800">Community Requests</h2>
                 <span className="text-sm text-gray-500">
                   {filteredRequests.length} {filteredRequests.length === 1 ? 'request' : 'requests'}
+                  {distance !== null && userLocation && ` within ${distance}km`}
                 </span>
               </div>
               {filteredRequests.length > 0 ? (
